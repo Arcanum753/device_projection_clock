@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Projection Clock</title>
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .section { margin: 12px auto; }
+        .section.hidden { display: none; }
+        .params { display: inline-block; text-align: left; }
+        .params td { padding: 4px 8px; }
+        .params td.label { text-align: right; white-space: nowrap; }
+        .status-msg { font-size: 12px; color: #aaa; margin-left: 8px; }
+        .manual-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 8px 0; }
+        .manual-item { text-align: center; }
+        .manual-item select { width: 64px; font-size: 16px; padding: 2px; }
+        .manual-item .m-label { font-size: 12px; color: #555; margin-bottom: 2px; }
+        .pal-in { display: inline-flex; flex-direction: column; align-items: center; margin: 0 3px; }
+        .pal-in input[type="color"] { width: 26px; height: 26px; padding: 0; border: 1px solid #666; }
+        .pal-in .pal-lbl { font-size: 10px; color: #555; }
+        .test-row { margin: 6px 0; }
+        .bus-warn { display: none; margin: 8px auto; padding: 8px 12px; max-width: 720px;
+                    border: 1px solid #e0a800; background: #fff8e1; color: #7a5c00;
+                    border-radius: 4px; text-align: left; }
+    </style>
+</head>
+<body>
+    <markup>./page_head.html</markup>
+    <h2 class="title" style="background: #4CAF50"> <span id="devicename"></span> Projection Clock</h2>
+
+    <div class="content" style="text-align: center;">
+        <table class="global_table_style" style="width: auto; margin: 0 auto;">
+            <tr><td style="text-align: left; padding: 8px;">
+                <b>RU:</b> Часы на 6 проекционных разрядах (60 адресных RGB LED, ЧЧ:ММ:СС).
+                В каждом разряде одновременно горит не более одного светодиода.<br>
+                <b>EN:</b> 6-digit projection clock (60 addressable RGB LEDs, HH:MM:SS).
+                At most one LED per digit is lit at any time.
+            </td></tr>
+        </table>
+    </div>
+
+    <div class="content" style="text-align: center;">
+        <div id="busModeWarn" class="bus-warn">
+            ⚠ Модуль управляется сценариями (macro). Изменения параметров здесь будут
+            перезаписаны сценариями.
+        </div>
+        <div class="params">
+            <table>
+                <tr><td class="label">Режим модуля / Bus mode:</td>
+                    <td>
+                        <select id="busMode" onchange="updateBusModeWarning()">
+                            <option value="0">off (выключено)</option>
+                            <option value="1">auto (автономно)</option>
+                            <option value="2">macro (сценарии)</option>
+                        </select>
+                    </td></tr>
+                <tr><td class="label">Режим / Mode:</td>
+                    <td>
+                        <select id="mode" onchange="updateModeUI()">
+                            <option value="0">Рабочий (часы ЧЧ:ММ:СС)</option>
+                            <option value="1">Ручной тест 6 цифр</option>
+                        </select>
+                    </td></tr>
+                <tr><td class="label">Формат часов:</td>
+                    <td>
+                        <select id="hourFormat">
+                            <option value="0">24 часа</option>
+                            <option value="1">12 часов (01..12)</option>
+                        </select>
+                    </td></tr>
+                <tr><td class="label">Data pin:</td>
+                    <td><input type="number" id="dataPin" min="-1" max="33" value="16" style="width:80px;"></td></tr>
+                <tr><td class="label">Яркость / Brightness:</td>
+                    <td><input type="range" id="brightness" min="0" max="255" value="25"
+                        oninput="document.getElementById('bVal').innerText=this.value">
+                        <span id="bVal">25</span></td></tr>
+                <tr><td class="label">Эффект / Effect:</td>
+                    <td>
+                        <select id="effect">
+                            <option value="0">Моноцвет</option>
+                            <option value="1">Радуга (перелив)</option>
+                            <option value="2">Градиент 2 цвета (статичный)</option>
+                            <option value="3">Градиент 2 цвета (динамический)</option>
+                            <option value="4">Плавная смена цвета</option>
+                        </select>
+                    </td></tr>
+                <tr><td class="label">Направление перелива:</td>
+                    <td>
+                        <select id="effectDir">
+                            <option value="0">Слева направо</option>
+                            <option value="1">Справа налево</option>
+                            <option value="2">От центра к краям</option>
+                            <option value="3">От краёв к центру</option>
+                        </select>
+                    </td></tr>
+                <tr><td class="label">Цвет цифр / Digit color:</td>
+                    <td><input type="color" id="digitsColor" value="#00ff00"></td></tr>
+                <tr><td class="label">Цвет 2 (градиент):</td>
+                    <td><input type="color" id="digitsColor2" value="#0000ff"></td></tr>
+                <tr><td class="label">Скорость перелива:</td>
+                    <td><input type="range" id="animSpeed" min="1" max="50" value="45"
+                        oninput="document.getElementById('spVal').innerText=this.value">
+                        <span id="spVal">45</span></td></tr>
+                <tr><td class="label">Кол-во цветов:</td>
+                    <td><input type="number" id="colorsCount" min="1" max="8" value="4" style="width:80px;"></td></tr>
+                <tr><td class="label">Порядок смены:</td>
+                    <td>
+                        <select id="cycleMode">
+                            <option value="0">По порядку (палитра)</option>
+                            <option value="1">Произвольно</option>
+                            <option value="2">По радуге</option>
+                        </select>
+                    </td></tr>
+                <tr><td class="label">Палитра:</td><td id="paletteBox"></td></tr>
+
+                <tr><td class="label">Анимация минуты:</td>
+                    <td><select id="minuteFx" class="fx-select"></select></td></tr>
+                <tr><td class="label">Длительность, с:</td>
+                    <td><input type="number" id="minuteFxDur" min="1" max="10" value="1" style="width:80px;"></td></tr>
+                <tr><td class="label">Каждую N-ю минуту:</td>
+                    <td>
+                        <select id="minuteFxFreq">
+                            <option value="1">1</option>
+                            <option value="3">3</option>
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                            <option value="15">15</option>
+                            <option value="20">20</option>
+                            <option value="40">40</option>
+                        </select>
+                    </td></tr>
+                <tr><td class="label">Анимация часа:</td>
+                    <td><select id="hourFx" class="fx-select"></select></td></tr>
+                <tr><td class="label">Длительность, с:</td>
+                    <td><input type="number" id="hourFxDur" min="1" max="10" value="3" style="width:80px;"></td></tr>
+
+                <tr><td class="label">Дождь до синхронизации:</td>
+                    <td>
+                        <select id="rainEnabled">
+                            <option value="1">Включён</option>
+                            <option value="0">Выключен</option>
+                        </select>
+                    </td></tr>
+                <tr><td class="label">Максимум дождя, с:</td>
+                    <td><input type="number" id="rainDurMin" min="1" max="10" value="2" style="width:80px;"></td></tr>
+                <tr><td class="label">Интенсивность:</td>
+                    <td><input type="number" id="rainIntensity" min="1" max="10" value="6" style="width:80px;"></td></tr>
+                <tr><td class="label">Фиксация, с:</td>
+                    <td><input type="number" id="rainSettleDur" min="0" max="10" value="1" style="width:80px;"></td></tr>
+
+                <tr><td colspan="2" style="text-align:center; padding:8px;">
+                    <input type="button" value="Применить и сохранить" class="button-prog" onclick="applySettings()">
+                    <span id="saveStatus" class="status-msg"></span>
+                </td></tr>
+            </table>
+        </div>
+    </div>
+
+    <div id="manualBlock" class="content section hidden" style="text-align:center;">
+        <div style="font-size:12px;color:#777;">Ручной тест: выберите цифру для каждого из 6 разрядов (ЧЧММСС).</div>
+        <div class="manual-grid">
+            <div class="manual-item"><div class="m-label">H дес.</div><select id="m0"></select></div>
+            <div class="manual-item"><div class="m-label">H ед.</div><select id="m1"></select></div>
+            <div class="manual-item"><div class="m-label">M дес.</div><select id="m2"></select></div>
+            <div class="manual-item"><div class="m-label">M ед.</div><select id="m3"></select></div>
+            <div class="manual-item"><div class="m-label">S дес.</div><select id="m4"></select></div>
+            <div class="manual-item"><div class="m-label">S ед.</div><select id="m5"></select></div>
+        </div>
+        <div>
+            <input type="button" value="Показать вручную" class="button-prog" onclick="showManual()">
+            <input type="button" value="Вернуть часы" class="button-prog" onclick="showWork()">
+        </div>
+    </div>
+
+    <div class="content" style="text-align: center;">
+        <h3 style="margin: 6px 0;">Отладка / Debug</h3>
+        <div class="test-row">
+            <input type="button" value="Перебор всей ленты" class="button-prog" onclick="runTest('sweep_all')">
+            <select id="sweepDigit">
+                <option value="1">Разряд 1 (H дес.)</option>
+                <option value="2">Разряд 2 (H ед.)</option>
+                <option value="3">Разряд 3 (M дес.)</option>
+                <option value="4">Разряд 4 (M ед.)</option>
+                <option value="5">Разряд 5 (S дес.)</option>
+                <option value="6">Разряд 6 (S ед.)</option>
+            </select>
+            <input type="button" value="Перебор разряда" class="button-prog" onclick="runSweepDigit()">
+            <input type="button" value="Стоп" class="button-prog" onclick="runTest('stop')">
+        </div>
+        <div class="test-row">
+            <input type="button" value="Предпросмотр минуты" class="button-prog" onclick="runTest('fx_minute')">
+            <input type="button" value="Предпросмотр часа" class="button-prog" onclick="runTest('fx_hour')">
+            <input type="button" value="Предпросмотр дождя" class="button-prog" onclick="runTest('rain')">
+            <span id="testStatus" class="status-msg"></span>
+        </div>
+    </div>
+
+    <div class="content" style="text-align: center;">
+        <table class="global_table_style" style="width:auto;margin:0 auto;">
+            <tr><th>Статус / Status</th><th>Значение</th></tr>
+            <tr><td class="label">NTP sync:</td><td><span id="x_ntp_sync">—</span></td></tr>
+            <tr><td class="label">Время / Time:</td><td><span id="x_time">—</span></td></tr>
+            <tr><td class="label">Цифры / Digits:</td><td><span id="x_digits">—</span></td></tr>
+            <tr><td class="label">LED индексы:</td><td><span id="x_leds">—</span></td></tr>
+            <tr><td class="label">Состояние / View:</td><td><span id="x_view">—</span></td></tr>
+            <tr><td class="label">Лента / Strip:</td><td><span id="x_strip">—</span></td></tr>
+            <tr><td class="label">Перебор / Sweep:</td><td><span id="x_sweep">—</span></td></tr>
+            <tr><td class="label">Uptime, s:</td><td><span id="x_uptime">—</span></td></tr>
+            <tr><td class="label">Free heap:</td><td><span id="x_heap">—</span></td></tr>
+        </table>
+    </div>
+
+    <div class="footer">
+        Module version: <span id="projclockversion"> </span> &nbsp;|&nbsp;
+        Build: <span id="projclockgentime"> </span> <br>
+        Commit date: <span id="projclockgendate"> </span>
+    </div>
+
+    <markup>./page_bottom.html</markup>
+    <input type="hidden" id="manualText">
+    <script src="GetJson.js" defer></script>
+    <script src="GetMarkup.js" defer></script>
+    <script>
+        const FX_NAMES = [
+            'off', 'fade_all', 'fade_seq', 'wipe_lr', 'wipe_rl', 'dissolve',
+            'flash', 'spin', 'slot', 'sweep', 'crossfade'
+        ];
+
+        function fillFxFilters() {
+            document.querySelectorAll('.fx-select').forEach(sel => {
+                sel.innerHTML = '';
+                FX_NAMES.forEach((name, i) => {
+                    const opt = document.createElement('option');
+                    opt.value = String(i);
+                    opt.textContent = name;
+                    sel.appendChild(opt);
+                });
+            });
+        }
+
+        function fillPalette() {
+            const box = document.getElementById('paletteBox');
+            box.innerHTML = '';
+            for (let i = 0; i < 8; i++) {
+                const wrap = document.createElement('span');
+                wrap.className = 'pal-in';
+                const lbl = document.createElement('span');
+                lbl.className = 'pal-lbl';
+                lbl.textContent = String(i + 1);
+                const inp = document.createElement('input');
+                inp.type = 'color';
+                inp.id = 'palette' + i;
+                inp.value = '#000000';
+                wrap.appendChild(lbl);
+                wrap.appendChild(inp);
+                box.appendChild(wrap);
+            }
+        }
+
+        function fillManual() {
+            for (let i = 0; i < 6; i++) {
+                const sel = document.getElementById('m' + i);
+                sel.innerHTML = '';
+                for (let d = 0; d <= 9; d++) {
+                    const opt = document.createElement('option');
+                    opt.value = String(d);
+                    opt.textContent = String(d);
+                    sel.appendChild(opt);
+                }
+            }
+        }
+
+        function updateModeUI() {
+            const manual = (parseInt(document.getElementById('mode').value) === 1);
+            document.getElementById('manualBlock').classList.toggle('hidden', !manual);
+        }
+
+        function updateBusModeWarning() {
+            const macro = (document.getElementById('busMode').value === '2');
+            document.getElementById('busModeWarn').style.display = macro ? 'block' : 'none';
+        }
+
+        function applyManualText(str) {
+            for (let i = 0; i < 6; i++) {
+                const ch = (i < str.length) ? str.charAt(i) : '0';
+                const sel = document.getElementById('m' + i);
+                if (sel) sel.value = (ch >= '0' && ch <= '9') ? ch : '0';
+            }
+            const hidden = document.getElementById('manualText');
+            if (hidden) hidden.value = str;
+        }
+
+        function collectManualText() {
+            let out = '';
+            for (let i = 0; i < 6; i++) {
+                out += document.getElementById('m' + i).value;
+            }
+            return out;
+        }
+
+        function buildParams() {
+            const get = (id) => document.getElementById(id).value;
+            let p = 'busMode=' + get('busMode')
+                  + '&mode=' + get('mode')
+                  + '&dataPin=' + get('dataPin')
+                  + '&brightness=' + get('brightness')
+                  + '&hourFormat=' + get('hourFormat')
+                  + '&effect=' + get('effect')
+                  + '&effectDir=' + get('effectDir')
+                  + '&digitsColor=' + encodeURIComponent(get('digitsColor'))
+                  + '&digitsColor2=' + encodeURIComponent(get('digitsColor2'))
+                  + '&animSpeed=' + get('animSpeed')
+                  + '&colorsCount=' + get('colorsCount')
+                  + '&cycleMode=' + get('cycleMode')
+                  + '&minuteFx=' + get('minuteFx')
+                  + '&minuteFxDur=' + get('minuteFxDur')
+                  + '&minuteFxFreq=' + get('minuteFxFreq')
+                  + '&hourFx=' + get('hourFx')
+                  + '&hourFxDur=' + get('hourFxDur')
+                  + '&rainEnabled=' + get('rainEnabled')
+                  + '&rainDurMin=' + get('rainDurMin')
+                  + '&rainIntensity=' + get('rainIntensity')
+                  + '&rainSettleDur=' + get('rainSettleDur')
+                  + '&manualText=' + encodeURIComponent(collectManualText());
+            for (let i = 0; i < 8; i++) {
+                const el = document.getElementById('palette' + i);
+                if (el) p += '&palette' + i + '=' + encodeURIComponent(el.value);
+            }
+            return p;
+        }
+
+        async function applySettings() {
+            const status = document.getElementById('saveStatus');
+            status.textContent = 'Saving...';
+            try {
+                const resp = await fetch('/proj_clock/save?' + buildParams(), { method: 'GET' });
+                status.textContent = resp.ok ? 'Saved' : 'Error';
+            } catch (e) {
+                status.textContent = 'Error';
+            }
+            setTimeout(() => { status.textContent = ''; }, 3000);
+        }
+
+        async function showManual() {
+            document.getElementById('mode').value = '1';
+            updateModeUI();
+            await applySettings();
+        }
+
+        async function showWork() {
+            document.getElementById('mode').value = '0';
+            updateModeUI();
+            await applySettings();
+        }
+
+        async function runTest(action) {
+            const status = document.getElementById('testStatus');
+            status.textContent = '...';
+            try {
+                const resp = await fetch('/proj_clock/test?action=' + encodeURIComponent(action), { method: 'GET' });
+                status.textContent = resp.ok ? 'OK' : 'Error';
+            } catch (e) {
+                status.textContent = 'Error';
+            }
+            setTimeout(() => { status.textContent = ''; }, 3000);
+        }
+
+        function runSweepDigit() {
+            const d = document.getElementById('sweepDigit').value;
+            const status = document.getElementById('testStatus');
+            status.textContent = '...';
+            fetch('/proj_clock/test?action=sweep_digit&digit=' + encodeURIComponent(d), { method: 'GET' })
+                .then(r => { status.textContent = r.ok ? 'OK' : 'Error'; })
+                .catch(() => { status.textContent = 'Error'; });
+            setTimeout(() => { status.textContent = ''; }, 3000);
+        }
+
+        async function updateFromInfo() {
+            try {
+                const resp = await fetch('/proj_clock/info');
+                const text = await resp.text();
+                for (const line of text.split('\n')) {
+                    const parts = line.split('|');
+                    if (parts.length < 3) continue;
+                    const id = parts[0];
+                    const val = parts[1];
+                    const el = document.getElementById(id);
+                    if (!el) continue;
+                    if (parts[2] === 'div') {
+                        el.textContent = (id === 'x_ntp_sync') ? (val === '1' ? 'yes' : 'no') : val;
+                    } else {
+                        el.value = val;
+                    }
+                }
+                const mt = document.getElementById('manualText');
+                applyManualText(mt ? mt.value : '123456');
+                document.getElementById('bVal').innerText = document.getElementById('brightness').value;
+                document.getElementById('spVal').innerText = document.getElementById('animSpeed').value;
+                updateModeUI();
+                updateBusModeWarning();
+            } catch (e) {}
+        }
+
+        window.onload = function() {
+            fillFxFilters();
+            fillPalette();
+            fillManual();
+            updateModeUI();
+            updateBusModeWarning();
+            setTimeout(() => {
+                updateFromInfo()
+                    .then(() => ApplyCVT('/proj_clock/ver'))
+                    .then(() => ApplyCVT('/system/version'));
+            }, 300);
+        };
+    </script>
+</body>
+</html>
