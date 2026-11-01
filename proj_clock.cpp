@@ -618,7 +618,7 @@ void CLASS_DEVICE_PROJ_CLOCK::defaultConfig() {
     _config.busMode     = PROJ_CLOCK_BUS_AUTO;
     _config.mode        = PROJ_CLOCK_MODE_WORK;
     _config.dataPin     = 16;
-    _config.brightness  = 25;
+    _config.brightness  = 255;
     _config.hourFormat  = PROJ_CLOCK_HOUR_24;
     _config.effect      = PROJ_CLOCK_EFFECT_MONO;
     _config.effectDir   = PROJ_CLOCK_FXDIR_LR;

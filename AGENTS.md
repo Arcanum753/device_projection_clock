@@ -73,7 +73,7 @@
 `palette[8]`, `minuteFx`, `minuteFxDur`, `minuteFxFreq`, `hourFx`, `hourFxDur`, `rainEnabled`,
 `rainDurMin`, `rainIntensity`, `rainSettleDur`, `manualText`.
 
-Дефолты: GPIO16, яркость 25, 24h, `mono`, зелёный, `minuteFx=spin/1с` (каждую минуту),
+Дефолты: GPIO16, яркость 255, 24h, `mono`, зелёный, `minuteFx=spin/1с` (каждую минуту),
 `hourFx=sweep/3с`, дождь включён (макс. 2 с, фиксация 1 с), `manualText="123456"`.
 
 ## Веб-интерфейс
